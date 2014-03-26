@@ -1,0 +1,98 @@
+<?php
+
+/**
+ * Certificate Registration module.
+ * @file
+ */
+
+
+/**
+ * Implements hook_access_certificate().
+ */
+function certificate_registration_access_certificate($node, $user) {
+  return certificate_registration_is_registration_complete($node, $user);
+}
+
+/**
+ * Ipmplements hook_token_info().
+ */
+function certificate_registration_token_info() {
+  $info['types']['certificate'] = array(
+    'name' => t('Certificate'),
+    'description' => t('Tokens related to certificates.'),
+  );
+
+  $info['tokens']['certificate']['registration-name'] = array(
+    'name' => t('Registration User Real name'),
+    'description' => t('Entity registration user real name.'),
+  );
+  return $info;
+
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function certificate_registration_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $url_options = array('absolute' => TRUE);
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+    $language_code = $options['language']->language;
+  }
+  else {
+    $language_code = NULL;
+  }
+  $sanitize = !empty($options['sanitize']);
+
+  $replacements = array();
+
+  if ($type == 'certificate') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'name':
+          $node = node_load(arg(1));
+          global $user;
+          $account = certificate_registration_is_registration_complete($node, $user, TRUE);
+          if (empty($account)) {
+            return FALSE;
+          }
+          $name = format_username($account);
+          $replacements[$original] = $sanitize ? check_plain($name) : $name;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  return $replacements;
+}
+
+/**
+ * Helper function to see if user has registration with completed state
+ *
+ * @return mixed or (optionally) Object
+ *  FALSE if user should not be shown the menu tab or link.
+ *  TRUE if user should be able to download a certificate.
+ *  If $token = TRUE, then user object to generate tokens for certificate is returned
+ */
+function certificate_registration_is_registration_complete($node, $user, $token = NULL) {
+  $sql = "SELECT 1 FROM {registration_entity} WHERE entity_id = :nid";
+  $registration_node = db_query($sql, array(':nid' => $node->nid))->fetchField();
+  if ((bool)$registration_node == TRUE) {
+    $admin = user_access('administer certificates');
+    $view_all = user_access('view all user certificates');
+
+    $account = $user;
+    // Use account of a different user if allowed.
+    if (($admin || $view_all) && arg(3) > 0) {
+      $account = user_load(arg(3));
+    }
+    // Award certificate if course section registration is complete
+    $sql = "SELECT 1 FROM {registration} WHERE entity_id = :nid AND user_uid = :uid AND state = 'complete'";
+    $complete = db_query($sql, array(':nid' => $node->nid, ':uid' => $account->uid))->fetchField();
+    if ((bool)$complete == TRUE && $token == TRUE) {
+      return $account;
+    }
+    return (bool)$complete;
+  }
+}

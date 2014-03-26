@@ -1,0 +1,5 @@
+name = Certificate Registration
+description = Award a certificate when entity registration is completed. 
+core = 7.x
+dependencies[] = certificate
+dependencies[] = registration
