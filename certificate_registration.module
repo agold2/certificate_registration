@@ -14,7 +14,7 @@ function certificate_registration_access_certificate($node, $user) {
 }
 
 /**
- * Ipmplements hook_token_info().
+ * Implements hook_token_info().
  */
 function certificate_registration_token_info() {
   $info['types']['certificate'] = array(
